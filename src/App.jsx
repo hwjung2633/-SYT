@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 
-// ── 투자처 (저축 상품 제외 — 투자 자산만)
 const ASSETS = {
   sp500:   { label: 'S&P 500',  icon: '📈', rate: 0.105, rateLabel: '연 10.5%', desc: '미국 대형주 평균',  color: '#34D399' },
   nasdaq:  { label: '나스닥',   icon: '⚡', rate: 0.150, rateLabel: '연 15%',   desc: '기술주 중심',      color: '#38BDF8' },
@@ -9,7 +8,6 @@ const ASSETS = {
 
 const MONTH_OPTIONS = [6, 12, 18, 24]
 
-// ── 숫자 포맷
 function fmt(n, short = false) {
   const abs  = Math.abs(n)
   const sign = n < 0 ? '-' : ''
@@ -27,7 +25,6 @@ function fmt(n, short = false) {
   return sign + abs.toLocaleString() + '원'
 }
 
-// ── 슬라이더
 function Slider({ value, min, max, step, onChange, color }) {
   const ratio = (value - min) / (max - min)
   const pct   = (ratio * 100).toFixed(2) + '%'
@@ -45,7 +42,6 @@ function Slider({ value, min, max, step, onChange, color }) {
   )
 }
 
-// ── SVG 라인 차트
 function MiniChart({ deposit, months, rate, color }) {
   const W = 600; const H = 80
   const pts = useMemo(() => {
@@ -79,7 +75,6 @@ function MiniChart({ deposit, months, rate, color }) {
   )
 }
 
-// ── 영수증 행
 function RRow({ label, value, color, hl }) {
   return (
     <div className={`receipt-row${hl ? ' hl' : ''}`}>
@@ -89,18 +84,14 @@ function RRow({ label, value, color, hl }) {
   )
 }
 
-// ── 메인 앱
 export default function App() {
-  const [deposit,    setDeposit]    = useState(20_000_000)   // 2000만원
-  const [months,     setMonths]     = useState(12)
-  const [monthlyRent, setMonthlyRent] = useState(700_000)    // 월세 70만원
-  const [asset,      setAsset]      = useState('sp500')
-  const [viewMode,   setViewMode]   = useState('full')
-  const [showResult, setShowResult] = useState(false)
+  const [deposit,     setDeposit]     = useState(20_000_000)
+  const [months,      setMonths]      = useState(12)
+  const [monthlyRent, setMonthlyRent] = useState(700_000)
+  const [asset,       setAsset]       = useState('sp500')
+  const [showResult,  setShowResult]  = useState(false)
 
-  const a = ASSETS[asset]
-
-  // 개런티즈 수수료 = 월세 × 10%
+  const a          = ASSETS[asset]
   const monthlyFee = Math.round(monthlyRent * 0.1)
 
   const calc = useMemo(() => {
@@ -113,34 +104,27 @@ export default function App() {
 
   const isPos = calc.total >= 0
   const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
-
-  function reset() { setShowResult(false) }
+  const reset = () => setShowResult(false)
 
   return (
-    <div>
+    <div className="app-root">
       {/* 헤더 */}
       <header className="app-header">
-        <div>
-          <div className="app-badge">GUARANTEES FINTECH</div>
-          <div className="app-title">보증금 투자 계산기</div>
-        </div>
-        <div className="mode-toggle">
-          <button className={`mode-btn${viewMode === 'full' ? ' active' : ''}`} onClick={() => setViewMode('full')}>📱 전체</button>
-          <button className={`mode-btn${viewMode === 'popup' ? ' active' : ''}`} onClick={() => setViewMode('popup')}>🖥 팝업</button>
-        </div>
+        <div className="app-badge">GUARANTEEZ FINTECH</div>
+        <div className="app-title">보증금 투자 계산기</div>
       </header>
 
       {/* 본문 */}
       <div className="scroll-area">
-        <div className={`calc-wrap ${viewMode}`}>
+        <div className="calc-wrap">
 
           {/* ── 카드 1: 보증금 + 월세 + 기간 */}
           <div className="card">
-            {/* 보증금 */}
             <div className="deposit-display">
               <div className="dead-badge">🔒 잠긴 돈</div>
               <div className="input-value">{fmt(deposit)}</div>
             </div>
+
             <div className="slider-group">
               <div className="slider-label">보증금 액수</div>
               <Slider
@@ -157,7 +141,6 @@ export default function App() {
 
             <div className="divider" />
 
-            {/* 월세 → 수수료 자동 계산 */}
             <div className="slider-group">
               <div className="slider-label">월세</div>
               <Slider
@@ -174,7 +157,6 @@ export default function App() {
 
             <div className="divider" />
 
-            {/* 거주 기간 */}
             <div className="slider-label">거주 예정 기간</div>
             <div className="month-picker">
               {MONTH_OPTIONS.map(m => (
@@ -243,12 +225,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── CTA */}
+          {/* ── CTA: 계산 버튼 */}
           <button
             className="calc-btn"
             style={{
-              background:  isPos ? 'var(--neon)' : 'var(--red)',
-              boxShadow:   isPos ? '0 4px 20px rgba(56,189,248,0.35)' : '0 4px 20px rgba(248,113,113,0.3)',
+              background: isPos ? 'var(--neon)' : 'var(--red)',
+              boxShadow:  isPos ? '0 4px 20px rgba(56,189,248,0.35)' : '0 4px 20px rgba(248,113,113,0.3)',
             }}
             onClick={() => setShowResult(true)}
           >
@@ -259,25 +241,25 @@ export default function App() {
           {showResult && (
             <div className="receipt">
               <div className="receipt-header">
-                <div className="receipt-store">GUARANTEES FINANCE</div>
+                <div className="receipt-store">GUARANTEEZ FINANCE</div>
                 <div className="receipt-title">보증금 해방 분석서</div>
                 <div className="receipt-date">{today}</div>
               </div>
 
               <hr className="receipt-dash" />
 
-              <RRow label="보증금"               value={fmt(deposit)} />
-              <RRow label="월세"                 value={`${fmt(monthlyRent)}/월`} />
-              <RRow label="개런티즈 수수료 (×10%)" value={`${fmt(monthlyFee)}/월`} />
-              <RRow label="거주 기간"             value={`${months}개월`} />
-              <RRow label="투자처"               value={`${a.icon} ${a.label} (${a.rateLabel})`} />
+              <RRow label="보증금"                  value={fmt(deposit)} />
+              <RRow label="월세"                    value={`${fmt(monthlyRent)}/월`} />
+              <RRow label="guaranteez 수수료 (×10%)" value={`${fmt(monthlyFee)}/월`} />
+              <RRow label="거주 기간"               value={`${months}개월`} />
+              <RRow label="투자처"                  value={`${a.icon} ${a.label} (${a.rateLabel})`} />
 
               <hr className="receipt-dash" />
 
               <RRow label="[+] 보증금 해방 자산"              value={fmt(deposit)}                color="var(--neon)"  hl />
               <RRow label={`[+] 예상 투자 수익 (${a.label})`} value={`+${fmt(calc.opportunity)}`} color={a.color}      hl />
               <RRow label="[+] 인플레이션 방어"               value={`+${fmt(calc.inflation)}`}   color="var(--green)" />
-              <RRow label="[-] 개런티즈 수수료 합계"           value={`-${fmt(calc.sunkCost)}`}    color="var(--red)"   />
+              <RRow label="[-] guaranteez 수수료 합계"        value={`-${fmt(calc.sunkCost)}`}    color="var(--red)"   />
 
               <hr className="receipt-dash" />
 
@@ -309,10 +291,28 @@ export default function App() {
               <div className="receipt-footer">
                 <p>* 실제 수익은 시장 상황에 따라 다를 수 있습니다</p>
                 <p>* 인플레이션율 연 3% 적용 기준</p>
-                <p className="brand">GUARANTEES.CO.KR</p>
+                <p className="brand">GUARANTEEZ.CO.KR</p>
               </div>
             </div>
           )}
+
+          {/* ── 하단 guaranteez 연결 섹션 */}
+          <div className="gz-cta-card">
+            <div className="gz-cta-logo">guaranteez</div>
+            <a
+              className="gz-cta-btn"
+              href="https://newguaranteez.base44.app/Home"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              보증금 0원 만들기 →
+            </a>
+            <p className="gz-cta-desc">
+              월세의 10%만 내고 보증금 없이 입주하세요.<br />
+              guaranteez가 보증금 전액을 집주인에게 직접 납부합니다.<br />
+              목돈 없이도 원하는 집에 살 수 있는 새로운 방법.
+            </p>
+          </div>
 
         </div>
       </div>
