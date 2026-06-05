@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
-// ── 자산 메타 (색상/라벨/아이콘 — 수익률은 API에서)
 const ASSET_META = {
   samsung: { label: '삼성전자',  icon: '📱', desc: '코스피 대장주',  color: '#4A9EFF' },
   skhynix: { label: 'SK하이닉스', icon: '💾', desc: '반도체 대표주', color: '#FF6B6B' },
@@ -12,13 +11,18 @@ const ASSET_META = {
 
 const FALLBACK_RATES = {
   samsung: 0.12, skhynix: 0.18, kospi: 0.08,
-  sp500: 0.105,  nasdaq: 0.15,  bitcoin: 0.50,
+  sp500:   0.105, nasdaq:  0.15, bitcoin: 0.50,
 }
 
 const MONTH_OPTIONS = [6, 12, 18, 24]
 
-// ── 포맷
+// ── 유틸
+function safeRate(r, key) {
+  return (typeof r === 'number' && isFinite(r)) ? r : FALLBACK_RATES[key]
+}
+
 function fmt(n, short = false) {
+  if (!isFinite(n)) return '—'
   const abs  = Math.abs(n)
   const sign = n < 0 ? '-' : ''
   if (short) {
@@ -36,6 +40,7 @@ function fmt(n, short = false) {
 }
 
 function fmtRate(r) {
+  if (!isFinite(r)) return '···'
   const pct = (r * 100).toFixed(1)
   return r >= 0 ? `+${pct}%` : `${pct}%`
 }
@@ -109,89 +114,62 @@ function Toast({ msg }) {
 
 // ── 메인 앱
 export default function App() {
-  const [deposit,     setDeposit]     = useState(20_000_000)
-  const [months,      setMonths]      = useState(12)
-  const [monthlyRent, setMonthlyRent] = useState(700_000)
-  const [asset,       setAsset]       = useState('sp500')
-  const [showResult,  setShowResult]  = useState(false)
-
-  // 주식 데이터
-  const [rates,        setRates]       = useState(FALLBACK_RATES)
-  const [prices,       setPrices]      = useState({})
+  const [deposit,      setDeposit]      = useState(20_000_000)
+  const [months,       setMonths]       = useState(12)
+  const [monthlyRent,  setMonthlyRent]  = useState(700_000)
+  const [asset,        setAsset]        = useState('sp500')
+  const [rates,        setRates]        = useState(FALLBACK_RATES)
   const [stockLoading, setStockLoading] = useState(true)
+  const [toast,        setToast]        = useState('')
 
-  // 공유
-  const [toast, setToast] = useState('')
-
-  // ── 주식 API 호출
+  // ── 주식 API
   useEffect(() => {
     fetch('/api/stocks')
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
-          setRates({
-            samsung: data.stocks.samsung.rate,
-            skhynix: data.stocks.skhynix.rate,
-            kospi:   data.stocks.kospi.rate,
+          const updated = { ...FALLBACK_RATES }
+          Object.keys(ASSET_META).forEach(key => {
+            const r = data.stocks?.[key]?.rate
+            if (typeof r === 'number' && isFinite(r)) updated[key] = r
           })
-          setPrices({
-            samsung: data.stocks.samsung.price,
-            skhynix: data.stocks.skhynix.price,
-            kospi:   data.stocks.kospi.price,
-          })
+          setRates(updated)
         }
       })
       .catch(() => {})
       .finally(() => setStockLoading(false))
   }, [])
 
-  // ── URL 파라미터 복원 (공유 링크)
+  // ── URL 파라미터 복원
   useEffect(() => {
     const p = new URLSearchParams(window.location.search)
     const d = p.get('d'), m = p.get('m'), r = p.get('r'), a = p.get('a')
-    if (d && !isNaN(d)) setDeposit(Number(d))
-    if (m && MONTH_OPTIONS.includes(Number(m))) setMonths(Number(m))
-    if (r && !isNaN(r)) setMonthlyRent(Number(r))
-    if (a && a in ASSET_META) setAsset(a)
-    if (d || m || r || a) setShowResult(true)
+    if (d && isFinite(+d))                   setDeposit(Number(d))
+    if (m && MONTH_OPTIONS.includes(+m))     setMonths(Number(m))
+    if (r && isFinite(+r))                   setMonthlyRent(Number(r))
+    if (a && a in ASSET_META)                setAsset(a)
   }, [])
 
-  const rate = rates[asset]
-  const a    = {
-    ...ASSET_META[asset],
-    rate,
-    rateLabel: stockLoading ? '로딩중…' : fmtRate(rate) + '/yr',
-    price:     prices[asset],
-  }
-
+  const rate       = safeRate(rates[asset], asset)
+  const a          = { ...ASSET_META[asset], rate }
   const monthlyFee = Math.round(monthlyRent * 0.1)
 
+  // ── 계산 (항상 실시간)
   const calc = useMemo(() => {
-    const opportunity = deposit * a.rate / 12 * months
+    const opportunity = deposit * rate / 12 * months
     const sunkCost    = monthlyFee * months
     const inflation   = deposit * (1 - Math.pow(1.03, -(months / 12)))
     const total       = opportunity - sunkCost + inflation
     return { opportunity, sunkCost, inflation, total }
-  }, [deposit, months, monthlyFee, a.rate])
+  }, [deposit, months, monthlyFee, rate])
 
   const isPos = calc.total >= 0
   const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
-
-  const reset = () => setShowResult(false)
 
   // ── 공유
   function buildShareUrl() {
     const base = window.location.origin + window.location.pathname
     return `${base}?d=${deposit}&m=${months}&r=${monthlyRent}&a=${asset}`
-  }
-
-  function buildShareText() {
-    return (
-      `💡 내 보증금 숨은 돈 계산해봤어!\n\n` +
-      `보증금 ${fmt(deposit)} → ${months}개월 후\n` +
-      `${a.label} 투자 시 순수익 ${isPos ? '+' : ''}${fmt(calc.total)}\n\n` +
-      `나도 계산해봐 👇\n${buildShareUrl()}`
-    )
   }
 
   function showToast(msg) {
@@ -200,33 +178,23 @@ export default function App() {
   }
 
   async function handleShare() {
-    const text = buildShareText()
     const url  = buildShareUrl()
-
-    // 모바일: 네이티브 공유 시트
+    const text = `💡 내 보증금 숨은 돈 계산해봤어!\n\n보증금 ${fmt(deposit)} → ${months}개월\n${a.label} 투자 시 순수익 ${isPos ? '+' : ''}${fmt(calc.total)}\n\n나도 계산해봐 👇\n${url}`
     if (navigator.share) {
-      try {
-        await navigator.share({ title: '보증금 투자 계산기', text, url })
-      } catch { /* 취소 */ }
+      try { await navigator.share({ title: '보증금 투자 계산기', text, url }) } catch {}
       return
     }
-
-    // 데스크톱: 클립보드 복사
     try {
       await navigator.clipboard.writeText(text)
-      showToast('📋 링크 복사됨! 붙여넣기 하세요')
-    } catch {
-      showToast('링크: ' + url)
-    }
+      showToast('📋 링크 복사됨!')
+    } catch { showToast('링크: ' + url) }
   }
 
   async function handleCopyLink() {
     try {
       await navigator.clipboard.writeText(buildShareUrl())
       showToast('🔗 링크 복사 완료!')
-    } catch {
-      showToast('복사 실패 — 직접 URL을 복사하세요')
-    }
+    } catch { showToast('복사 실패') }
   }
 
   return (
@@ -239,7 +207,7 @@ export default function App() {
           <div className="app-badge">GUARANTEEZ FINTECH</div>
           <div className="app-title">보증금 투자 계산기</div>
         </div>
-        <button className="share-icon-btn" onClick={handleShare} title="공유하기">
+        <button className="share-icon-btn" onClick={handleShare}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
@@ -248,7 +216,6 @@ export default function App() {
         </button>
       </header>
 
-      {/* 본문 */}
       <div className="scroll-area">
         <div className="calc-wrap">
 
@@ -261,10 +228,8 @@ export default function App() {
 
             <div className="slider-group">
               <div className="slider-label">보증금 액수</div>
-              <Slider
-                value={deposit} min={1_000_000} max={50_000_000} step={1_000_000}
-                onChange={v => { setDeposit(v); reset() }} color="var(--neon)"
-              />
+              <Slider value={deposit} min={1_000_000} max={50_000_000} step={1_000_000}
+                onChange={setDeposit} color="var(--neon)" />
               <div className="slider-range">
                 <span>100만원</span>
                 <span className="center">{fmt(deposit)}</span>
@@ -276,10 +241,8 @@ export default function App() {
 
             <div className="slider-group">
               <div className="slider-label">월세</div>
-              <Slider
-                value={monthlyRent} min={300_000} max={1_500_000} step={10_000}
-                onChange={v => { setMonthlyRent(v); reset() }} color="var(--red)"
-              />
+              <Slider value={monthlyRent} min={300_000} max={1_500_000} step={10_000}
+                onChange={setMonthlyRent} color="var(--red)" />
               <div className="slider-range">
                 <span>30만원</span>
                 <span className="center red">{fmt(monthlyRent)}/월</span>
@@ -292,11 +255,9 @@ export default function App() {
             <div className="slider-label">거주 예정 기간</div>
             <div className="month-picker">
               {MONTH_OPTIONS.map(m => (
-                <button
-                  key={m}
+                <button key={m}
                   className={`month-btn${months === m ? ' active' : ''}`}
-                  onClick={() => { setMonths(m); reset() }}
-                >
+                  onClick={() => setMonths(m)}>
                   {m}개월
                   <small>{m === 12 ? '1년' : m === 24 ? '2년' : ''}</small>
                 </button>
@@ -308,24 +269,23 @@ export default function App() {
           <div className="card">
             <div className="section-title">투자처 선택</div>
             <div className="section-sub">
-              {stockLoading ? '실시간 주가 불러오는 중…' : '1년 실적 기준 실시간 수익률'}
+              {stockLoading ? '실시간 수익률 불러오는 중…' : '1년 실적 기준 실시간 수익률'}
             </div>
             <div className="asset-grid">
               {Object.entries(ASSET_META).map(([key, meta]) => {
-                const r       = rates[key]
-                const isOn    = asset === key
-                const rLabel  = stockLoading ? '···' : fmtRate(r) + '/yr'
-                const rColor  = r >= 0 ? meta.color : 'var(--red)'
+                const r      = safeRate(rates[key], key)
+                const isOn   = asset === key
+                const rColor = r >= 0 ? meta.color : 'var(--red)'
                 return (
-                  <div
-                    key={key}
+                  <div key={key}
                     className={`asset-chip${isOn ? ' active' : ''}`}
                     style={isOn ? { borderColor: meta.color, background: `${meta.color}15` } : {}}
-                    onClick={() => { setAsset(key); reset() }}
-                  >
+                    onClick={() => setAsset(key)}>
                     <span className="asset-icon">{meta.icon}</span>
                     <span className="asset-label" style={isOn ? { color: meta.color } : {}}>{meta.label}</span>
-                    <span className="asset-rate" style={{ color: rColor }}>{rLabel}</span>
+                    <span className="asset-rate" style={{ color: rColor }}>
+                      {stockLoading ? '···' : fmtRate(r) + '/yr'}
+                    </span>
                     <span className="asset-desc">{meta.desc}</span>
                   </div>
                 )
@@ -365,80 +325,62 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── CTA */}
-          <button
-            className="calc-btn"
-            style={{
-              background: isPos ? 'var(--neon)' : 'var(--red)',
-              boxShadow:  isPos ? '0 4px 20px rgba(56,189,248,0.35)' : '0 4px 20px rgba(248,113,113,0.3)',
-            }}
-            onClick={() => setShowResult(true)}
-          >
-            💡 숨은 돈 계산하기
-          </button>
+          {/* ── 영수증 (항상 표시) */}
+          <div className="receipt">
+            <div className="receipt-header">
+              <div className="receipt-store">GUARANTEEZ FINANCE</div>
+              <div className="receipt-title">보증금 해방 분석서</div>
+              <div className="receipt-date">{today}</div>
+            </div>
 
-          {/* ── 영수증 */}
-          {showResult && (
-            <div className="receipt" ref={receiptRef}>
-              <div className="receipt-header">
-                <div className="receipt-store">GUARANTEEZ FINANCE</div>
-                <div className="receipt-title">보증금 해방 분석서</div>
-                <div className="receipt-date">{today}</div>
-              </div>
+            <hr className="receipt-dash" />
 
-              <hr className="receipt-dash" />
+            <RRow label="보증금"                   value={fmt(deposit)} />
+            <RRow label="월세"                     value={`${fmt(monthlyRent)}/월`} />
+            <RRow label="guaranteez 수수료 (×10%)" value={`${fmt(monthlyFee)}/월`} />
+            <RRow label="거주 기간"                value={`${months}개월`} />
+            <RRow label="투자처"                   value={`${a.icon} ${a.label} (${fmtRate(rate)}/yr)`} />
 
-              <RRow label="보증금"                   value={fmt(deposit)} />
-              <RRow label="월세"                     value={`${fmt(monthlyRent)}/월`} />
-              <RRow label="guaranteez 수수료 (×10%)" value={`${fmt(monthlyFee)}/월`} />
-              <RRow label="거주 기간"                value={`${months}개월`} />
-              <RRow label="투자처"                   value={`${a.icon} ${a.label} (${a.rateLabel})`} />
+            <hr className="receipt-dash" />
 
-              <hr className="receipt-dash" />
+            <RRow label="[+] 보증금 해방 자산"              value={fmt(deposit)}                color="var(--neon)"  hl />
+            <RRow label={`[+] 예상 투자 수익 (${a.label})`} value={`+${fmt(calc.opportunity)}`} color={a.color}      hl />
+            <RRow label="[+] 인플레이션 방어"               value={`+${fmt(calc.inflation)}`}   color="var(--green)" />
+            <RRow label="[-] guaranteez 수수료 합계"        value={`-${fmt(calc.sunkCost)}`}    color="var(--red)"   />
 
-              <RRow label="[+] 보증금 해방 자산"              value={fmt(deposit)}                color="var(--neon)"  hl />
-              <RRow label={`[+] 예상 투자 수익 (${a.label})`} value={`+${fmt(calc.opportunity)}`} color={a.color}      hl />
-              <RRow label="[+] 인플레이션 방어"               value={`+${fmt(calc.inflation)}`}   color="var(--green)" />
-              <RRow label="[-] guaranteez 수수료 합계"        value={`-${fmt(calc.sunkCost)}`}    color="var(--red)"   />
+            <hr className="receipt-dash" />
 
-              <hr className="receipt-dash" />
-
-              <div className="receipt-total" style={{ background: isPos ? 'var(--green-glow)' : 'var(--red-glow)' }}>
-                <div className="rt-lbl">[TOTAL]</div>
-                <div className="rt-sub">{isPos ? '당신의 숨은 돈' : '안정성 프리미엄'}</div>
-                <div className="rt-amt" style={{ color: isPos ? 'var(--green)' : 'var(--red)' }}>
-                  {isPos ? '+' : ''}{fmt(calc.total)}
-                </div>
-              </div>
-
-              <div className="result-msg" style={{ borderColor: isPos ? 'var(--neon-border)' : 'rgba(248,113,113,0.3)' }}>
-                <span className="rm-icon">{isPos ? '🚀' : '🛡'}</span>
-                <span className="rm-text" style={{ color: isPos ? 'var(--neon)' : 'var(--red)' }}>
-                  {isPos
-                    ? `보증금을 해방해 ${a.label}에 투자하면 ${months}개월 동안 순수익 ${fmt(calc.total)}을 벌 수 있어요.`
-                    : `이 경우 전세 유지가 유리합니다. 보증금 안정성 및 전세사기 예방 가치로 해석하세요.`}
-                </span>
-              </div>
-
-              <hr className="receipt-dash" />
-
-              <div className="receipt-footer">
-                <p>* 실시간 주가 기준 1년 수익률 적용 / 실제 수익은 다를 수 있습니다</p>
-                <p>* 인플레이션율 연 3% 적용 기준</p>
-                <p className="brand">GUARANTEEZ.CO.KR</p>
+            <div className="receipt-total" style={{ background: isPos ? 'var(--green-glow)' : 'var(--red-glow)' }}>
+              <div className="rt-lbl">[TOTAL]</div>
+              <div className="rt-sub">{isPos ? '당신의 숨은 돈' : '안정성 프리미엄'}</div>
+              <div className="rt-amt" style={{ color: isPos ? 'var(--green)' : 'var(--red)' }}>
+                {isPos ? '+' : ''}{fmt(calc.total)}
               </div>
             </div>
-          )}
+
+            <div className="result-msg" style={{ borderColor: isPos ? 'var(--neon-border)' : 'rgba(248,113,113,0.3)' }}>
+              <span className="rm-icon">{isPos ? '🚀' : '🛡'}</span>
+              <span className="rm-text" style={{ color: isPos ? 'var(--neon)' : 'var(--red)' }}>
+                {isPos
+                  ? `보증금을 해방해 ${a.label}에 투자하면 ${months}개월 동안 순수익 ${fmt(calc.total)}을 벌 수 있어요.`
+                  : `이 경우 전세 유지가 유리합니다. 보증금 안정성 및 전세사기 예방 가치로 해석하세요.`}
+              </span>
+            </div>
+
+            <hr className="receipt-dash" />
+
+            <div className="receipt-footer">
+              <p>* 실시간 주가 기준 1년 수익률 적용 / 실제 수익은 다를 수 있습니다</p>
+              <p>* 인플레이션율 연 3% 적용 기준</p>
+              <p className="brand">GUARANTEEZ.CO.KR</p>
+            </div>
+          </div>
 
           {/* ── 하단 guaranteez CTA */}
           <div className="gz-cta-card">
             <div className="gz-cta-logo">guaranteez</div>
-            <a
-              className="gz-cta-btn"
-              href="https://newguaranteez.base44.app/Home"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a className="gz-cta-btn" href="https://newguaranteez.base44.app/Home"
+              target="_blank" rel="noopener noreferrer">
               보증금 0원 만들기 →
             </a>
             <p className="gz-cta-desc">
