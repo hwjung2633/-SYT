@@ -271,6 +271,51 @@ input[type=range] {
 .receipt-footer p { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
 .receipt-footer .brand { color: var(--neon); font-weight: 600; margin-top: 8px; }
 
+/* ── 공유 버튼 */
+.share-icon-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface-up); border: 1px solid var(--neon-border);
+  border-radius: 10px; padding: 7px 12px;
+  color: var(--neon); font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: background .15s;
+}
+.share-icon-btn:hover { background: var(--neon-glow); }
+
+.share-row {
+  display: flex; gap: 8px; margin-top: 4px;
+}
+.share-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 12px 8px; border-radius: 12px; border: none;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: filter .15s, transform .1s;
+}
+.share-btn:active { transform: scale(0.97); }
+.share-btn.primary {
+  background: var(--neon); color: #000;
+  box-shadow: 0 3px 14px rgba(56,189,248,0.3);
+}
+.share-btn.primary:hover { filter: brightness(1.08); }
+.share-btn.secondary {
+  background: var(--surface-up); color: var(--text-sub);
+  border: 1px solid var(--border);
+}
+.share-btn.secondary:hover { color: var(--text); border-color: var(--neon-border); }
+
+/* ── 토스트 */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: var(--surface-pop); color: var(--text);
+  border: 1px solid var(--neon-border); border-radius: 12px;
+  padding: 10px 20px; font-size: 13px; font-weight: 600;
+  white-space: nowrap; z-index: 100;
+  animation: toastIn .2s ease, toastOut .3s ease 1.9s forwards;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+@keyframes toastIn  { from { opacity:0; transform:translateX(-50%) translateY(8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+
 /* ── 하단 guaranteez CTA */
 .gz-cta-card {
   background: linear-gradient(135deg, #0D1F2D 0%, #0A1628 100%);
