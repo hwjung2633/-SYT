@@ -1,13 +1,19 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 
-// ── 주식 메타 (색상/라벨/아이콘 — 수익률은 API에서)
+// ── 자산 메타 (색상/라벨/아이콘 — 수익률은 API에서)
 const ASSET_META = {
   samsung: { label: '삼성전자',  icon: '📱', desc: '코스피 대장주',  color: '#4A9EFF' },
   skhynix: { label: 'SK하이닉스', icon: '💾', desc: '반도체 대표주', color: '#FF6B6B' },
   kospi:   { label: 'KOSPI',     icon: '📊', desc: '코스피 지수',   color: '#34D399' },
+  sp500:   { label: 'S&P 500',   icon: '🇺🇸', desc: '미국 대형주',  color: '#818CF8' },
+  nasdaq:  { label: '나스닥',    icon: '⚡', desc: '미국 기술주',   color: '#38BDF8' },
+  bitcoin: { label: '비트코인',  icon: '₿',  desc: '고위험 고수익', color: '#F59E0B' },
 }
 
-const FALLBACK_RATES = { samsung: 0.12, skhynix: 0.18, kospi: 0.08 }
+const FALLBACK_RATES = {
+  samsung: 0.12, skhynix: 0.18, kospi: 0.08,
+  sp500: 0.105,  nasdaq: 0.15,  bitcoin: 0.50,
+}
 
 const MONTH_OPTIONS = [6, 12, 18, 24]
 
@@ -106,17 +112,16 @@ export default function App() {
   const [deposit,     setDeposit]     = useState(20_000_000)
   const [months,      setMonths]      = useState(12)
   const [monthlyRent, setMonthlyRent] = useState(700_000)
-  const [asset,       setAsset]       = useState('samsung')
+  const [asset,       setAsset]       = useState('sp500')
   const [showResult,  setShowResult]  = useState(false)
 
   // 주식 데이터
-  const [rates,       setRates]       = useState(FALLBACK_RATES)
-  const [prices,      setPrices]      = useState({})
+  const [rates,        setRates]       = useState(FALLBACK_RATES)
+  const [prices,       setPrices]      = useState({})
   const [stockLoading, setStockLoading] = useState(true)
 
   // 공유
   const [toast, setToast] = useState('')
-  const receiptRef = useRef(null)
 
   // ── 주식 API 호출
   useEffect(() => {
@@ -417,22 +422,6 @@ export default function App() {
 
               <hr className="receipt-dash" />
 
-              {/* 공유 버튼 */}
-              <div className="share-row">
-                <button className="share-btn primary" onClick={handleShare}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                  </svg>
-                  결과 공유하기
-                </button>
-                <button className="share-btn secondary" onClick={handleCopyLink}>
-                  🔗 링크 복사
-                </button>
-              </div>
-
-              <hr className="receipt-dash" />
-
               <div className="receipt-footer">
                 <p>* 실시간 주가 기준 1년 수익률 적용 / 실제 수익은 다를 수 있습니다</p>
                 <p>* 인플레이션율 연 3% 적용 기준</p>
@@ -457,6 +446,20 @@ export default function App() {
               guaranteez가 보증금 전액을 집주인에게 직접 납부합니다.<br />
               목돈 없이도 원하는 집에 살 수 있는 새로운 방법.
             </p>
+          </div>
+
+          {/* ── 공유 버튼 (최하단) */}
+          <div className="share-row">
+            <button className="share-btn primary" onClick={handleShare}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              결과 공유하기
+            </button>
+            <button className="share-btn secondary" onClick={handleCopyLink}>
+              🔗 링크 복사
+            </button>
           </div>
 
         </div>

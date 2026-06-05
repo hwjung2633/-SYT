@@ -1,19 +1,26 @@
 /**
- * Vercel Serverless Function — 한국 주식 연간 수익률 조회
+ * Vercel Serverless Function — 글로벌 자산 연간 수익률 조회
  * 삼성전자(005930.KS), SK하이닉스(000660.KS), KOSPI(^KS11)
- * Yahoo Finance 무료 API 사용 / 5분 캐시
+ * S&P 500(^GSPC), 나스닥(^IXIC), 비트코인(BTC-USD)
+ * Yahoo Finance 무료 API / 5분 캐시
  */
 
 const TICKERS = {
   samsung: '005930.KS',
   skhynix: '000660.KS',
   kospi:   '^KS11',
+  sp500:   '^GSPC',
+  nasdaq:  '^IXIC',
+  bitcoin: 'BTC-USD',
 }
 
 const FALLBACK = {
   samsung: 0.12,
   skhynix: 0.18,
   kospi:   0.08,
+  sp500:   0.105,
+  nasdaq:  0.150,
+  bitcoin: 0.500,
 }
 
 export default async function handler(req, res) {
@@ -39,11 +46,7 @@ export default async function handler(req, res) {
         const last  = closes[closes.length - 1]
         const annualRate = (last - first) / first
 
-        results[key] = {
-          rate:  annualRate,
-          price: last,
-          ok:    true,
-        }
+        results[key] = { rate: annualRate, price: last, ok: true }
       } catch {
         results[key] = { rate: FALLBACK[key], price: null, ok: false }
       }
